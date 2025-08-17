@@ -151,6 +151,11 @@ app.get('/api/get-json-data', async (req, res) => {
     };
 
     const jsonString = JSON.stringify(dataToSave, null, 2);
+    const htmlEscapedJson = jsonString
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
 
     res.send(`
 <!DOCTYPE html>
@@ -179,7 +184,7 @@ app.get('/api/get-json-data', async (req, res) => {
 
         <div class="json-container">
             <h3>📋 JSON Data (Select All → Copy):</h3>
-            <textarea id="jsonData" readonly>${jsonString}</textarea>
+            <textarea id="jsonData" readonly>${htmlEscapedJson}</textarea>
             <br>
             <button class="button" onclick="selectAndCopy()">📱 Select All & Copy</button>
             <button class="button" onclick="downloadJSON()">💾 Download JSON</button>
@@ -199,8 +204,14 @@ app.get('/api/get-json-data', async (req, res) => {
     </div>
 
     <script>
+        // Store the original JSON without HTML escaping
+        const originalJson = ${JSON.stringify(jsonString)};
+        
         function selectAndCopy() {
             const textarea = document.getElementById('jsonData');
+            
+            // Use the original JSON for copying, not the HTML-escaped version
+            textarea.value = originalJson;
             textarea.select();
             textarea.setSelectionRange(0, 99999);
             
@@ -210,11 +221,14 @@ app.get('/api/get-json-data', async (req, res) => {
             } catch (err) {
                 alert('❌ Copy failed. Please select all text manually.');
             }
+            
+            // Restore the HTML-escaped version for display
+            textarea.value = textarea.defaultValue;
         }
 
         function downloadJSON() {
-            const jsonData = document.getElementById('jsonData').value;
-            const blob = new Blob([jsonData], { type: 'application/json' });
+            // Use original JSON for download
+            const blob = new Blob([originalJson], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
