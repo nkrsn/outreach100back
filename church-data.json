@@ -1,0 +1,58 @@
+{
+  "consolidatedData": [
+    {
+      "name": "Life.Church",
+      "location": "Edmond, OK",
+      "pastor": "Craig Groeschel",
+      "data": [
+        { "year": 2015, "attendance": 42000, "ranking": 1 },
+        { "year": 2016, "attendance": 43200, "ranking": 1 },
+        { "year": 2017, "attendance": 44500, "ranking": 1 },
+        { "year": 2018, "attendance": 45800, "ranking": 1 },
+        { "year": 2019, "attendance": 47000, "ranking": 1 },
+        { "year": 2020, "attendance": 35000, "ranking": 1 },
+        { "year": 2021, "attendance": 38000, "ranking": 1 },
+        { "year": 2022, "attendance": 42000, "ranking": 1 },
+        { "year": 2023, "attendance": 44000, "ranking": 1 },
+        { "year": 2024, "attendance": 46000, "ranking": 1 }
+      ]
+    },
+    {
+      "name": "Church of the Highlands",
+      "location": "Birmingham, AL",
+      "pastor": "Chris Hodges",
+      "data": [
+        { "year": 2015, "attendance": 38000, "ranking": 2 },
+        { "year": 2016, "attendance": 39200, "ranking": 2 },
+        { "year": 2017, "attendance": 40500, "ranking": 2 },
+        { "year": 2018, "attendance": 41800, "ranking": 2 },
+        { "year": 2019, "attendance": 43000, "ranking": 2 },
+        { "year": 2020, "attendance": 32000, "ranking": 2 },
+        { "year": 2021, "attendance": 35000, "ranking": 2 },
+        { "year": 2022, "attendance": 39000, "ranking": 2 },
+        { "year": 2023, "attendance": 41000, "ranking": 2 },
+        { "year": 2024, "attendance": 42500, "ranking": 2 }
+      ]
+    },
+    {
+      "name": "CCV (Christ's Church of the Valley)",
+      "location": "Peoria, AZ", 
+      "pastor": "Ashley Wooldridge",
+      "data": [
+        { "year": 2015, "attendance": 25000, "ranking": 8 },
+        { "year": 2016, "attendance": 27500, "ranking": 7 },
+        { "year": 2017, "attendance": 30000, "ranking": 6 },
+        { "year": 2018, "attendance": 33000, "ranking": 5 },
+        { "year": 2019, "attendance": 36000, "ranking": 4 },
+        { "year": 2020, "attendance": 28000, "ranking": 4 },
+        { "year": 2021, "attendance": 31000, "ranking": 4 },
+        { "year": 2022, "attendance": 35000, "ranking": 3 },
+        { "year": 2023, "attendance": 38000, "ranking": 3 },
+        { "year": 2024, "attendance": 41000, "ranking": 3 }
+      ]
+    }
+  ],
+  "lastUpdated": "2024-08-16T12:00:00.000Z",
+  "yearsCovered": [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024],
+  "errors": []
+}

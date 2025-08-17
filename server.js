@@ -1,8 +1,10 @@
-// server.js - Railway Backend for Church Data Scraping
+// server.js - Railway Backend for Church Data with JSON Storage
 const express = require('express');
 const cors = require('cors');
 const cheerio = require('cheerio');
 const fetch = require('node-fetch');
+const fs = require('fs').promises;
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -11,110 +13,176 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// In-memory cache to avoid re-scraping
-const dataCache = new Map();
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+// Data file path
+const DATA_FILE = path.join(__dirname, 'church-data.json');
+
+// In-memory cache for performance
+let cachedData = null;
+let lastLoaded = null;
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'Church Data Backend is running!',
+    dataSource: 'JSON file storage',
+    endpoints: [
+      '/health',
+      '/api/get-data',
+      '/api/scrape-and-save', 
+      '/api/data-info'
+    ]
+  });
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    dataFile: 'church-data.json'
+  });
 });
 
-// Scrape specific year
-app.get('/api/scrape-year/:year', async (req, res) => {
-  const year = parseInt(req.params.year);
-  
-  if (year < 2015 || year > 2024) {
-    return res.status(400).json({ error: 'Year must be between 2015 and 2024' });
-  }
-
+// Get church data from JSON file
+app.get('/api/get-data', async (req, res) => {
   try {
-    const cacheKey = `year-${year}`;
-    const cached = dataCache.get(cacheKey);
+    const data = await loadChurchData();
     
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-      return res.json({ 
-        data: cached.data, 
-        cached: true, 
-        scrapedAt: cached.timestamp 
+    if (!data || !data.consolidatedData) {
+      return res.status(404).json({ 
+        error: 'No church data found. Run /api/scrape-and-save first.' 
       });
     }
 
-    const churches = await scrapeYearData(year);
-    
-    // Cache the results
-    dataCache.set(cacheKey, {
-      data: churches,
-      timestamp: Date.now()
-    });
-
-    res.json({ 
-      data: churches, 
-      cached: false,
-      scrapedAt: Date.now()
+    res.json({
+      consolidatedData: data.consolidatedData,
+      lastUpdated: data.lastUpdated,
+      totalChurches: data.consolidatedData.length,
+      yearsCovered: data.yearsCovered || []
     });
 
   } catch (error) {
-    console.error(`Error scraping year ${year}:`, error);
-    res.status(500).json({ 
-      error: `Failed to scrape ${year} data: ${error.message}` 
-    });
+    console.error('Error loading church data:', error);
+    res.status(500).json({ error: 'Failed to load church data' });
   }
 });
 
-// Scrape all years
-app.get('/api/scrape-all', async (req, res) => {
+// Get data file information
+app.get('/api/data-info', async (req, res) => {
+  try {
+    const data = await loadChurchData();
+    
+    if (!data) {
+      return res.json({
+        exists: false,
+        message: 'No data file found. Run scrape-and-save to create it.'
+      });
+    }
+
+    res.json({
+      exists: true,
+      lastUpdated: data.lastUpdated,
+      totalChurches: data.consolidatedData?.length || 0,
+      yearsCovered: data.yearsCovered || [],
+      fileSize: data.fileSize || 'unknown'
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to check data file' });
+  }
+});
+
+// One-time scraping to populate JSON file (admin use)
+app.get('/api/scrape-and-save', async (req, res) => {
   try {
     const years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
     const allData = {};
     const errors = [];
 
+    res.writeHead(200, {
+      'Content-Type': 'text/plain',
+      'Transfer-Encoding': 'chunked'
+    });
+
+    res.write('Starting church data scraping...\n\n');
+
     for (const year of years) {
       try {
+        res.write(`Scraping ${year}...\n`);
         const churches = await scrapeYearData(year);
         allData[year] = churches;
-        console.log(`Successfully scraped ${churches.length} churches from ${year}`);
+        res.write(`✅ Successfully scraped ${churches.length} churches from ${year}\n`);
       } catch (error) {
         console.error(`Failed to scrape ${year}:`, error);
         errors.push({ year, error: error.message });
+        res.write(`❌ Failed to scrape ${year}: ${error.message}\n`);
       }
     }
 
     // Consolidate data by church
+    res.write('\nConsolidating data...\n');
     const consolidatedData = consolidateChurchData(allData);
 
-    res.json({
+    // Save to JSON file
+    const dataToSave = {
       consolidatedData,
       yearlyData: allData,
       errors,
-      scrapedAt: Date.now()
-    });
+      lastUpdated: new Date().toISOString(),
+      yearsCovered: years.filter(year => allData[year] && allData[year].length > 0)
+    };
+
+    await fs.writeFile(DATA_FILE, JSON.stringify(dataToSave, null, 2));
+    
+    // Clear cache to force reload
+    cachedData = null;
+    lastLoaded = null;
+
+    res.write(`\n✅ Data saved to church-data.json\n`);
+    res.write(`📊 Total churches with multi-year data: ${consolidatedData.length}\n`);
+    res.write(`📅 Years covered: ${dataToSave.yearsCovered.join(', ')}\n`);
+    
+    if (errors.length > 0) {
+      res.write(`⚠️ Errors: ${errors.length} years failed\n`);
+    }
+
+    res.write('\n🎉 Scraping complete! Data is now persisted.\n');
+    res.end();
 
   } catch (error) {
-    console.error('Error in scrape-all:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error in scrape-and-save:', error);
+    res.write(`\n❌ Fatal error: ${error.message}\n`);
+    res.end();
   }
 });
 
-// Get cached data only
-app.get('/api/cached-data', (req, res) => {
-  const allCached = {};
-  
-  for (let [key, value] of dataCache.entries()) {
-    if (key.startsWith('year-')) {
-      const year = key.replace('year-', '');
-      allCached[year] = {
-        data: value.data,
-        timestamp: value.timestamp,
-        age: Date.now() - value.timestamp
-      };
-    }
-  }
-
-  res.json({ cachedData: allCached });
-});
-
+// Scraping functions (used only for initial data collection)
 async function scrapeYearData(year) {
+async function loadChurchData() {
+  try {
+    // Use in-memory cache for performance
+    if (cachedData && lastLoaded && (Date.now() - lastLoaded) < 60000) { // 1 minute cache
+      return cachedData;
+    }
+
+    const fileExists = await fs.access(DATA_FILE).then(() => true).catch(() => false);
+    if (!fileExists) {
+      return null;
+    }
+
+    const fileContent = await fs.readFile(DATA_FILE, 'utf8');
+    const data = JSON.parse(fileContent);
+    
+    // Cache in memory
+    cachedData = data;
+    lastLoaded = Date.now();
+    
+    return data;
+  } catch (error) {
+    console.error('Error loading church data:', error);
+    return null;
+  }
+}
   const churches = [];
   let page = 1;
   let hasMorePages = true;
