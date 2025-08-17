@@ -92,23 +92,24 @@ app.get('/api/data-info', async (req, res) => {
   }
 });
 
-// One-time scraping to populate JSON file (admin use)
+// One-time scraping to generate JSON data (for manual saving)
 app.get('/api/scrape-and-save', async (req, res) => {
   try {
     const years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
     const allData = {};
     const errors = [];
 
+    // Set headers for streaming text response
     res.writeHead(200, {
       'Content-Type': 'text/plain',
       'Transfer-Encoding': 'chunked'
     });
 
-    res.write('Starting church data scraping...\n\n');
+    res.write('🚀 Starting church data scraping...\n\n');
 
     for (const year of years) {
       try {
-        res.write(`Scraping ${year}...\n`);
+        res.write(`📅 Scraping ${year}...\n`);
         const churches = await scrapeYearData(year);
         allData[year] = churches;
         res.write(`✅ Successfully scraped ${churches.length} churches from ${year}\n`);
@@ -120,33 +121,43 @@ app.get('/api/scrape-and-save', async (req, res) => {
     }
 
     // Consolidate data by church
-    res.write('\nConsolidating data...\n');
+    res.write('\n🔄 Consolidating data...\n');
     const consolidatedData = consolidateChurchData(allData);
 
-    // Save to JSON file
+    // Create the data structure
     const dataToSave = {
       consolidatedData,
       yearlyData: allData,
       errors,
       lastUpdated: new Date().toISOString(),
-      yearsCovered: years.filter(year => allData[year] && allData[year].length > 0)
+      yearsCovered: years.filter(year => allData[year] && allData[year].length > 0),
+      totalChurches: consolidatedData.length
     };
 
-    await fs.writeFile(DATA_FILE, JSON.stringify(dataToSave, null, 2));
-    
-    // Clear cache to force reload
-    cachedData = null;
-    lastLoaded = null;
-
-    res.write(`\n✅ Data saved to church-data.json\n`);
-    res.write(`📊 Total churches with multi-year data: ${consolidatedData.length}\n`);
+    res.write(`\n📊 Consolidation complete!\n`);
+    res.write(`📈 Total churches with multi-year data: ${consolidatedData.length}\n`);
     res.write(`📅 Years covered: ${dataToSave.yearsCovered.join(', ')}\n`);
     
     if (errors.length > 0) {
       res.write(`⚠️ Errors: ${errors.length} years failed\n`);
     }
 
-    res.write('\n🎉 Scraping complete! Data is now persisted.\n');
+    res.write('\n' + '='.repeat(80) + '\n');
+    res.write('📄 COPY THE JSON DATA BELOW FOR church-data.json:\n');
+    res.write('='.repeat(80) + '\n\n');
+
+    // Output the JSON data for manual copying
+    res.write(JSON.stringify(dataToSave, null, 2));
+
+    res.write('\n\n' + '='.repeat(80) + '\n');
+    res.write('📋 Instructions:\n');
+    res.write('1. Copy the JSON data above\n');
+    res.write('2. Create church-data.json in your backend repo\n');
+    res.write('3. Paste the JSON content\n');
+    res.write('4. Commit and push to GitHub\n');
+    res.write('5. Railway will auto-deploy with the new data\n');
+    res.write('='.repeat(80) + '\n');
+
     res.end();
 
   } catch (error) {
