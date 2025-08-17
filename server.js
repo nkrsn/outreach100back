@@ -92,7 +92,51 @@ app.get('/api/data-info', async (req, res) => {
   }
 });
 
-// One-time scraping to generate JSON data (for manual saving)
+// One-time scraping with progress updates (for manual saving)
+app.get('/api/scrape-and-save', async (req, res) => {
+app.get('/api/get-json-data', async (req, res) => {
+  try {
+    const years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
+    const allData = {};
+    const errors = [];
+
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache'
+    });
+
+    // Quick scraping for JSON output
+    for (const year of years) {
+      try {
+        const churches = await scrapeYearData(year);
+        allData[year] = churches;
+      } catch (error) {
+        console.error(`Failed to scrape ${year}:`, error);
+        errors.push({ year, error: error.message });
+      }
+    }
+
+    // Consolidate data by church
+    const consolidatedData = consolidateChurchData(allData);
+
+    // Create the data structure
+    const dataToSave = {
+      consolidatedData,
+      yearlyData: allData,
+      errors,
+      lastUpdated: new Date().toISOString(),
+      yearsCovered: years.filter(year => allData[year] && allData[year].length > 0),
+      totalChurches: consolidatedData.length
+    };
+
+    // Send clean JSON response
+    res.json(dataToSave);
+
+  } catch (error) {
+    console.error('Error generating JSON data:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
 app.get('/api/scrape-and-save', async (req, res) => {
   try {
     const years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
@@ -149,13 +193,15 @@ app.get('/api/scrape-and-save', async (req, res) => {
     // Output the JSON data for manual copying
     res.write(JSON.stringify(dataToSave, null, 2));
 
-    res.write('\n\n' + '='.repeat(80) + '\n');
-    res.write('📋 Instructions:\n');
-    res.write('1. Copy the JSON data above\n');
-    res.write('2. Create church-data.json in your backend repo\n');
-    res.write('3. Paste the JSON content\n');
-    res.write('4. Commit and push to GitHub\n');
-    res.write('5. Railway will auto-deploy with the new data\n');
+    res.write('\n' + '='.repeat(80) + '\n');
+    res.write('📄 FOR CLEAN JSON DATA, VISIT:\n');
+    res.write(`${req.protocol}://${req.get('host')}/api/get-json-data\n`);
+    res.write('='.repeat(80) + '\n');
+    res.write('📋 Safari Instructions:\n');
+    res.write('1. Visit the /api/get-json-data URL above\n');
+    res.write('2. Right-click → Save As → church-data.json\n');
+    res.write('3. Or copy the clean JSON from that page\n');
+    res.write('4. Add to your backend repo and commit\n');
     res.write('='.repeat(80) + '\n');
 
     res.end();
